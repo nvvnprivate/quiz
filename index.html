@@ -98,13 +98,12 @@ function setPf(id){S.pf=id;updList()}
 function updList(){const el=$('#pl');if(el)el.innerHTML=listHTML()}
 function listHTML(){
   const q=S.q.trim().toLowerCase();
-  const chips=`<div class="chips"><button class="chip ${S.pf?'':'on'}" onclick="setPf('')">Tất cả</button>${S.cat.map(p=>`<button class="chip ${S.pf===p.id?'on':''}" onclick="setPf('${p.id}')">${esc(p.name)}</button>`).join('')}</div>`;
   const groups=S.cat.map((p,pi)=>{
     if(S.pf&&S.pf!==p.id)return '';
     const rows=p.models.map((m,mi)=>[m,mi]).filter(([m])=>!q||(p.name+' '+m).toLowerCase().includes(q));
     return rows.length?`<div class="gh">${esc(p.name)} <span style="font-weight:400">${esc(p.note)}</span></div>`+rows.map(([m,mi])=>`<button class="mrow ${S.sel&&S.sel.provider===p.id&&S.sel.model===m?'on':''}" onclick="selModel(${pi},${mi})"><span class="dot"></span>${esc(m)}</button>`).join(''):'';
   }).join('');
-  return chips+`<div class="mlist">${groups||'<p class="mu" style="padding:10px">Không có kết quả.</p>'}</div><p class="mu">Đang chọn: <b>${S.sel?esc(provName(S.sel.provider))+' · '+esc(S.sel.model):'chưa chọn'}</b></p>`;
+  return `<div class="mlist">${groups||'<p class="mu" style="padding:10px">Không có kết quả.</p>'}</div><p class="mu">Đang chọn: <b>${S.sel?esc(provName(S.sel.provider))+' · '+esc(S.sel.model):'chưa chọn'}</b></p>`;
 }
 function init(){S.me='me';load();route();loadCat()}
 async function route(){
@@ -177,7 +176,7 @@ function createV(){
   </div>
   <div class="card"><div class="st"><span>3</span> Chọn AI</div>
   ${S.cat===null?'<p class="mu">Đang tải danh sách AI…</p>':S.cat.length===0?`<p class="mu">${S.catErr?'Không tải được danh sách AI. Hãy mở web qua địa chỉ Vercel (không mở file trực tiếp).':'Chủ web chưa bật AI nào. Cần thêm khóa API vào biến môi trường trên Vercel.'}</p>`:
-  `<input id="ms" type="search" placeholder="Tìm AI hoặc model (ví dụ: gemini, flash, claude)…" value="${esc(S.q)}" oninput="S.q=this.value;updList()"><div id="pl">${listHTML()}</div>`}
+  `<div id="pl">${listHTML()}</div>`}
   <div class="row" style="margin-top:12px"><button class="p" onclick="gen()" ${S.busy||!S.sel?'disabled':''}>${S.busy?'AI đang tạo…':'✨ Tạo quiz bằng AI'}</button><button onclick="blank()">Tạo thủ công</button></div></div>`;
 }
 async function readF(el){
