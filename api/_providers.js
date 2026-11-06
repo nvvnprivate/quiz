@@ -1,4 +1,4 @@
-// Chỉ giữ lại duy nhất Google Gemini bản Free mặc định
+// Cấu hình chỉ dùng duy nhất Google Gemini, ưu tiên phiên bản Gemini 3.8 Flash mới nhất
 const P = {
   gemini: {
     name: 'Google Gemini',
