@@ -1,24 +1,68 @@
-# QuizAI
+# QuizAI trên Vercel
 
-Web tạo quiz ôn tập từ tài liệu (PDF, Word, văn bản) bằng AI Gemini hoặc Claude. Chạy hoàn toàn trên trình duyệt, không cần máy chủ.
+Web tạo quiz ôn tập từ tài liệu bằng AI. Khóa API nằm trong **biến môi trường trên Vercel**, người dùng không cần nhập khóa và không thấy khóa.
 
-## Đặt lên GitHub Pages
+## Cấu trúc
 
-1. Đăng nhập GitHub, bấm **New repository**, đặt tên (ví dụ `quizai`), chọn **Public**, tạo repo.
-2. Bấm **Add file → Upload files**, kéo `index.html` (và `README.md`) vào, bấm **Commit changes**.
-3. Vào **Settings → Pages**. Ở mục **Build and deployment**, chọn **Deploy from a branch**, nhánh **main**, thư mục **/(root)**, bấm **Save**.
-4. Chờ 1–2 phút. Web có địa chỉ `https://<tên-github-của-bạn>.github.io/quizai/`.
+- `index.html`: giao diện.
+- `api/models.js`: trả danh sách AI và model đang bật (lấy trực tiếp từ nhà cung cấp, luôn cập nhật).
+- `api/generate.js`: nhận tài liệu, gọi AI bằng khóa của bạn, trả về quiz.
+- `api/_providers.js`: danh sách nhà cung cấp.
 
-## Lấy khóa API
+## Triển khai
 
-- **Gemini:** vào aistudio.google.com, tạo API key. Xem hạn mức miễn phí hiện tại trên trang của Google.
-- **Claude:** vào console.anthropic.com, tạo API key. Tính phí riêng theo lượng dùng, không dùng chung gói claude.ai.
+**Cách 1: qua GitHub (repo Public hay Private đều được)**
+1. Đưa toàn bộ thư mục này lên một repo GitHub (giữ nguyên thư mục `api`).
+2. Vào vercel.com, đăng nhập bằng GitHub, chọn **Add New → Project**, chọn repo, để Framework Preset là **Other**, bấm **Deploy**.
 
-Dán khóa vào bước 3 khi tạo quiz. Tên model có thể sửa ngay trong ô Model nếu Google hoặc Anthropic đổi tên.
+**Cách 2: dùng dòng lệnh**
+```
+npm i -g vercel
+cd quizai-vercel
+vercel
+vercel --prod
+```
 
-## Lưu ý quan trọng
+## Gắn khóa API vào biến môi trường
 
-- **Không ghi khóa API vào file trong repo.** Web chỉ lưu khóa trong trình duyệt của bạn (localStorage).
-- Quiz cũng lưu trong trình duyệt, mỗi máy một kho riêng. Dùng **Xuất tất cả (.json)** để sao lưu hoặc chuyển sang máy khác, và **Nhập file** để nạp lại.
-- Nút 🔗 trên mỗi quiz tạo liên kết chứa toàn bộ nội dung quiz. Người nhận mở liên kết là làm được ngay và có thể lưu vào thư viện của họ. Quiz dài thì liên kết dài, nếu app chat cắt mất thì gửi file .json.
-- PDF scan dạng ảnh không đọc được. File .doc cũ cần lưu lại thành .docx.
+Vào **Project → Settings → Environment Variables**, thêm biến cho AI bạn muốn bật (chỉ AI nào có khóa mới hiện trên web):
+
+| AI | Tên biến |
+|---|---|
+| Google Gemini | `GEMINI_API_KEY` |
+| Anthropic Claude | `ANTHROPIC_API_KEY` |
+| OpenAI | `OPENAI_API_KEY` |
+| DeepSeek | `DEEPSEEK_API_KEY` |
+| xAI Grok | `XAI_API_KEY` |
+| Mistral | `MISTRAL_API_KEY` |
+| Groq | `GROQ_API_KEY` |
+| OpenRouter | `OPENROUTER_API_KEY` |
+
+Sau khi thêm hoặc sửa biến, vào **Deployments → Redeploy** để áp dụng. Không bao giờ ghi khóa vào file trong repo.
+
+## Chống lạm dụng (quan trọng khi cho mọi người dùng chung)
+
+Mọi lượt tạo quiz đều tính vào tài khoản AI của bạn. Nên làm:
+
+- Đặt **giới hạn chi tiêu** trong trang quản lý của từng nhà cung cấp.
+- Ưu tiên AI có gói miễn phí hoặc model rẻ.
+- Biến tùy chọn: `ALLOWED_PROVIDERS` (vd `gemini,groq`), `ALLOWED_MODELS` (liệt kê đúng tên model được phép, cách nhau dấu phẩy), `RATE_LIMIT_PER_HOUR` (mặc định 20 lượt/giờ/IP).
+- Giới hạn theo IP trong code chỉ là mức cơ bản. Muốn chặt hơn, bật rate limiting trong Vercel Firewall.
+
+## Chạy thử trên máy
+
+```
+vercel dev
+```
+Mở địa chỉ hiện ra. Không mở `index.html` trực tiếp vì sẽ không gọi được `/api`.
+
+## Bảo mật khóa API: checklist
+
+Code đã làm sẵn: khóa chỉ đọc từ biến môi trường ở phía máy chủ, không bao giờ gửi về trình duyệt, không nằm trong prompt gửi cho AI, không in ra log, được che nếu nhà cung cấp trả lỗi có chứa khóa, và gửi qua header (không nằm trên URL). API chỉ nhận yêu cầu từ chính trang web của bạn. Dự án không dùng thư viện npm nào nên không có rủi ro từ thư viện bên thứ ba.
+
+Phần bạn cần tự làm (code không làm thay được):
+1. **Không bao giờ dán khóa vào file trong repo** (kể cả repo Private). Chỉ nhập ở Vercel → Settings → Environment Variables. Nếu có tùy chọn **Sensitive**, hãy bật.
+2. Chỉ bật biến cho môi trường **Production** nếu không cần chạy bản Preview.
+3. **Đặt giới hạn chi tiêu** ở từng nhà cung cấp AI. Đây là lớp bảo vệ cứng nhất nếu có người lạm dụng.
+4. Nếu nghi ngờ lộ khóa (lỡ dán lên GitHub, chat, ảnh chụp màn hình…): vào trang nhà cung cấp **xóa khóa cũ, tạo khóa mới**, cập nhật lên Vercel rồi Redeploy.
+5. Dùng khóa riêng cho web này, đừng dùng chung với dự án khác, để thu hồi dễ.

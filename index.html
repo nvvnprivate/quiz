@@ -49,6 +49,10 @@ label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mu);
 .opt.no{border-color:var(--no);background:color-mix(in srgb,var(--no) 14%,var(--card))}.opt.no i{background:var(--no);color:#fff}
 .fb{border-radius:14px;padding:12px 14px;margin:12px 0}.fb.g{background:color-mix(in srgb,var(--ok) 12%,var(--card))}.fb.r{background:color-mix(in srgb,var(--no) 12%,var(--card))}
 .score{font-size:48px;font-weight:800;margin:4px 0;background:linear-gradient(90deg,var(--pr),var(--pr2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.chip{padding:6px 12px;border-radius:99px;font-size:14px}.chip.on{background:var(--pr);color:#fff;border-color:var(--pr)}
+.mlist{max-height:280px;overflow:auto;border:1px solid var(--bd);border-radius:14px;padding:6px;background:var(--bg)}.gh{font-weight:700;font-size:13px;padding:8px 8px 4px;color:var(--mu)}
+.mrow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:10px;word-break:break-all}.mrow:hover{background:color-mix(in srgb,var(--pr) 8%,var(--card))}
+.mrow.on{background:color-mix(in srgb,var(--pr) 14%,var(--card));font-weight:600}.dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--bd);flex:none}.mrow.on .dot{border-color:var(--pr);background:var(--pr)}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 18px;border-radius:99px;z-index:9;box-shadow:var(--sh)}
 @media (max-width:520px){.qt{font-size:18px}.hero h2{font-size:19px}}
 </style>
@@ -58,7 +62,7 @@ label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mu);
 <script>
 const $=s=>document.querySelector(s);
 const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const S={view:'home',me:null,db:null,ai:null,docs:{},draft:null,play:null,busy:false,err:'',text:'',n:8,lang:'Tiếng Việt',diff:'vừa',type:'trộn',cfg:{provider:'gemini',gkey:'',ckey:'',gmodel:'gemini-2.5-flash',cmodel:'claude-sonnet-5-5'}};
+const S={view:'home',me:null,db:null,ai:null,docs:{},draft:null,play:null,busy:false,err:'',text:'',n:8,lang:'Tiếng Việt',diff:'vừa',type:'trộn',cat:null,sel:null,q:'',pf:'',catErr:false};
 const all=()=>Object.entries(S.docs).flatMap(([uid,d])=>(d.quizzes||[]).map(q=>({...q,uid})));
 const mine=()=>S.docs[S.me]?.quizzes||[];
 const rid=()=>'q'+Math.random().toString(36).slice(2,9);
@@ -72,11 +76,37 @@ const pipe=async(u,S2)=>new Uint8Array(await new Response(new Blob([u]).stream()
 async function enc(q){const raw=new TextEncoder().encode(JSON.stringify({title:q.title,questions:q.questions}));return window.CompressionStream?'z'+b64(await pipe(raw,CompressionStream)):'p'+b64(raw)}
 async function dec(t){let u=unb64(t.slice(1));if(t[0]==='z')u=await pipe(u,DecompressionStream);return JSON.parse(new TextDecoder().decode(u))}
 function load(){
-  try{S.docs={me:{quizzes:JSON.parse(localStorage.getItem('quizai.q')||'[]')}};Object.assign(S.cfg,JSON.parse(localStorage.getItem('quizai.cfg')||'{}'))}
+  try{S.docs={me:{quizzes:JSON.parse(localStorage.getItem('quizai.q')||'[]')}}}
   catch(e){S.docs={me:{quizzes:[]}}}
 }
-function setCfg(k,v){S.cfg[k]=v;try{localStorage.setItem('quizai.cfg',JSON.stringify(S.cfg))}catch(e){}}
-function init(){S.me='me';load();route()}
+async function loadCat(){
+  try{
+    const r=await fetch('/api/models');if(!r.ok)throw 0;
+    S.cat=(await r.json()).providers||[];
+    let sv=null;try{sv=JSON.parse(localStorage.getItem('quizai.sel'))}catch(e){}
+    S.sel=sv&&S.cat.some(p=>p.id===sv.provider&&p.models.includes(sv.model))?sv:pickDefault();
+  }catch(e){S.cat=[];S.catErr=true}
+  if(S.view==='create')render();
+}
+function pickDefault(){
+  for(const p of S.cat){const m=p.models.find(x=>/flash|mini|haiku|small|chat|lite/i.test(x))||p.models[0];if(m)return{provider:p.id,model:m}}
+  return null;
+}
+const provName=id=>(S.cat.find(p=>p.id===id)||{}).name||id;
+function selModel(pi,mi){const p=S.cat[pi];S.sel={provider:p.id,model:p.models[mi]};try{localStorage.setItem('quizai.sel',JSON.stringify(S.sel))}catch(e){}updList()}
+function setPf(id){S.pf=id;updList()}
+function updList(){const el=$('#pl');if(el)el.innerHTML=listHTML()}
+function listHTML(){
+  const q=S.q.trim().toLowerCase();
+  const chips=`<div class="chips"><button class="chip ${S.pf?'':'on'}" onclick="setPf('')">Tất cả</button>${S.cat.map(p=>`<button class="chip ${S.pf===p.id?'on':''}" onclick="setPf('${p.id}')">${esc(p.name)}</button>`).join('')}</div>`;
+  const groups=S.cat.map((p,pi)=>{
+    if(S.pf&&S.pf!==p.id)return '';
+    const rows=p.models.map((m,mi)=>[m,mi]).filter(([m])=>!q||(p.name+' '+m).toLowerCase().includes(q));
+    return rows.length?`<div class="gh">${esc(p.name)} <span style="font-weight:400">${esc(p.note)}</span></div>`+rows.map(([m,mi])=>`<button class="mrow ${S.sel&&S.sel.provider===p.id&&S.sel.model===m?'on':''}" onclick="selModel(${pi},${mi})"><span class="dot"></span>${esc(m)}</button>`).join(''):'';
+  }).join('');
+  return chips+`<div class="mlist">${groups||'<p class="mu" style="padding:10px">Không có kết quả.</p>'}</div><p class="mu">Đang chọn: <b>${S.sel?esc(provName(S.sel.provider))+' · '+esc(S.sel.model):'chưa chọn'}</b></p>`;
+}
+function init(){S.me='me';load();route();loadCat()}
 async function route(){
   const h=location.hash.slice(1);
   if(h.startsWith('s=')){
@@ -134,7 +164,7 @@ function editQ(id){S.draft=JSON.parse(JSON.stringify(mine().find(q=>q.id===id)))
 
 /* ---------- Tạo bằng AI ---------- */
 function createV(){
-  const c=S.cfg,g=c.provider==='gemini';
+  
   return `<div class="card"><div class="st"><span>1</span> Tài liệu</div>
   <input type="file" id="f" accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.srt" onchange="readF(this)"> <span id="fs" class="mu"></span>
   <p class="mu">Hỗ trợ PDF, Word (.docx) và file văn bản. PDF scan dạng ảnh không đọc được; file .doc cũ hãy lưu lại thành .docx.</p>
@@ -145,12 +175,10 @@ function createV(){
   <label>Dạng câu<select onchange="S.type=this.value">${['trộn','một đáp án','nhiều đáp án'].map(x=>`<option ${x===S.type?'selected':''}>${x}</option>`).join('')}</select></label>
   <label>Ngôn ngữ<input value="${esc(S.lang)}" onchange="S.lang=this.value"></label></div></div>
   </div>
-  <div class="card"><div class="st"><span>3</span> AI</div>
-  <div class="seg"><button class="${g?'on':''}" onclick="setCfg('provider','gemini');render()">Gemini</button><button class="${g?'':'on'}" onclick="setCfg('provider','claude');render()">Claude</button></div>
-  <div class="row"><label>Khóa API ${g?'Gemini':'Claude'}<input type="password" autocomplete="off" value="${esc(g?c.gkey:c.ckey)}" placeholder="${g?'AIza…':'sk-ant-…'}" onchange="setCfg('${g?'gkey':'ckey'}',this.value.trim())"></label>
-  <label>Model<input value="${esc(g?c.gmodel:c.cmodel)}" onchange="setCfg('${g?'gmodel':'cmodel'}',this.value.trim())"></label></div>
-  <p class="mu">Khóa chỉ lưu trong trình duyệt của bạn và chỉ được gửi tới ${g?'Google':'Anthropic'}. ${g?'Lấy khóa tại aistudio.google.com.':'Lấy khóa tại console.anthropic.com (tính phí riêng, không dùng chung gói claude.ai).'}</p>
-  <div class="row"><button class="p" onclick="gen()" ${S.busy?'disabled':''}>${S.busy?'AI đang tạo…':'✨ Tạo quiz bằng AI'}</button><button onclick="blank()">Tạo thủ công</button></div></div>`;
+  <div class="card"><div class="st"><span>3</span> Chọn AI</div>
+  ${S.cat===null?'<p class="mu">Đang tải danh sách AI…</p>':S.cat.length===0?`<p class="mu">${S.catErr?'Không tải được danh sách AI. Hãy mở web qua địa chỉ Vercel (không mở file trực tiếp).':'Chủ web chưa bật AI nào. Cần thêm khóa API vào biến môi trường trên Vercel.'}</p>`:
+  `<input id="ms" type="search" placeholder="Tìm AI hoặc model (ví dụ: gemini, flash, claude)…" value="${esc(S.q)}" oninput="S.q=this.value;updList()"><div id="pl">${listHTML()}</div>`}
+  <div class="row" style="margin-top:12px"><button class="p" onclick="gen()" ${S.busy||!S.sel?'disabled':''}>${S.busy?'AI đang tạo…':'✨ Tạo quiz bằng AI'}</button><button onclick="blank()">Tạo thủ công</button></div></div>`;
 }
 async function readF(el){
   const f=el.files[0];if(!f)return;const fs=$('#fs'),n=f.name.toLowerCase();
@@ -172,39 +200,23 @@ async function readF(el){
     S.text=t;$('#t').value=t;fs.textContent='Đã đọc '+t.length.toLocaleString('vi')+' ký tự từ '+f.name;
   }catch(e){fs.textContent='';S.err=e.message||'Không đọc được file';render()}
 }
-function typeRule(){return S.type==='một đáp án'?'Mỗi câu CHỈ có 1 đáp án đúng (c có đúng 1 phần tử).':S.type==='nhiều đáp án'?'Mỗi câu có 2 hoặc 3 đáp án đúng (c có 2-3 phần tử), đề bài ghi rõ "chọn tất cả đáp án đúng".':'Khoảng 70% câu có 1 đáp án đúng, 30% câu có 2-3 đáp án đúng (đề bài ghi rõ "chọn tất cả đáp án đúng").'}
 function blank(){S.draft={id:rid(),title:'Quiz mới',questions:[{q:'',options:['','','',''],c:[0],exp:''}]};S.view='edit';render()}
-function buildPrompt(){
-  return `Bạn là giáo viên giỏi. Dựa HOÀN TOÀN vào tài liệu dưới đây, tạo ${S.n} câu hỏi trắc nghiệm, độ khó ${S.diff}, ngôn ngữ: ${S.lang}.
-Mục đích: giúp người học ôn tập, ưu tiên kiến thức trọng tâm. Mỗi câu có đúng 4 đáp án (A, B, C, D), đáp án sai phải hợp lý. ${typeRule()} Không bịa thông tin ngoài tài liệu.
-Chỉ trả về JSON, không thêm chữ nào khác: {"title":"...","questions":[{"q":"...","options":["A","B","C","D"],"c":[0],"exp":"giải thích ngắn"}]} (c là mảng chỉ số 0-3 của các đáp án đúng).
-TÀI LIỆU:
-${S.text.slice(0,20000)}`;
-}
 function toDraft(r){
   const qs=(r.questions||[]).map(x=>({q:x.q,options:x.options,c:Array.isArray(x.c)?x.c:[x.a],exp:x.exp||''})).filter(x=>x.q&&Array.isArray(x.options)&&x.options.length===4&&x.c.length&&x.c.every(j=>Number.isInteger(j)&&j>=0&&j<4));
   if(!qs.length)throw new Error('Không có câu hỏi hợp lệ, hãy thử lại.');
   return {id:rid(),title:r.title||'Quiz mới',questions:qs};
 }
 function needText(){S.text=($('#t')||{}).value||S.text;if(S.text.trim().length<80){S.err='Tài liệu quá ngắn, hãy dán thêm nội dung.';render();return false}S.err='';return true}
-async function callAI(prompt){
-  const c=S.cfg,g=c.provider==='gemini',key=g?c.gkey:c.ckey;
-  if(!key)throw new Error('Hãy nhập khóa API '+(g?'Gemini':'Claude')+' ở bước 3.');
-  const r=g
-    ?await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(c.gmodel)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json'}})})
-    :await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:c.cmodel,max_tokens:8000,messages:[{role:'user',content:prompt}]})});
-  const j=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error((j.error&&j.error.message)||('Lỗi '+r.status));
-  const t=g?((j.candidates&&j.candidates[0]&&j.candidates[0].content.parts)||[]).map(p=>p.text||'').join(''):(j.content||[]).map(p=>p.text||'').join('');
-  const a=t.indexOf('{'),b=t.lastIndexOf('}');
-  if(a<0||b<a)throw new Error('AI không trả về JSON, hãy thử lại.');
-  return JSON.parse(t.slice(a,b+1));
-}
 async function gen(){
   if(!needText())return;
+  if(!S.sel){S.err='Hãy chọn một AI ở bước 3.';return render()}
   S.busy=true;render();
-  try{S.draft=toDraft(await callAI(buildPrompt()));S.view='edit'}
-  catch(e){S.err=e.message||'Lỗi khi gọi AI'}
+  try{
+    const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:S.sel.provider,model:S.sel.model,text:S.text.slice(0,20000),n:S.n,diff:S.diff,type:S.type,lang:S.lang})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(j.error||('Lỗi '+r.status));
+    S.draft=toDraft(j);S.view='edit';
+  }catch(e){S.err=e.message||'Lỗi khi gọi AI'}
   S.busy=false;render();
 }
 
