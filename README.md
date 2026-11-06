@@ -54,6 +54,8 @@ Nếu chưa cấu hình, nút 🔗 vẫn hoạt động nhưng tạo link dài n
 
 ## Bật đăng nhập Google (tùy chọn)
 
+**Lưu ý: web yêu cầu đăng nhập Google mới được tạo quiz (cả giao diện lẫn `/api/generate`), nên bạn cần làm mục này để chính bạn tạo được quiz.** Người nhận link chia sẻ vẫn làm bài không cần đăng nhập.
+
 Cho phép người dùng đăng nhập bằng Gmail để quiz của họ được lưu theo tài khoản và dùng trên mọi thiết bị. Cần **Upstash Redis** (xem mục trên) cộng thêm:
 
 1. Vào [Google Cloud Console](https://console.cloud.google.com) → tạo project → **APIs & Services → OAuth consent screen**: chọn External, điền tên ứng dụng và email, rồi bấm **Publish app** (nếu để chế độ Testing thì chỉ những email bạn thêm vào danh sách test mới đăng nhập được).

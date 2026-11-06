@@ -133,7 +133,8 @@ function render(){
   $('#app').innerHTML=(S.err?`<p class="err">${esc(S.err)}</p>`:'')+(v==='create'?createV():v==='edit'?editV():v==='play'?playV():v==='login'?loginV():homeV());
   if(v==='login')mountGoogle();
 }
-function newDraft(){S.draft=null;S.text='';S.view='create';S.err='';render()}
+function needLogin(next){if(S.user)return true;S.after=next||null;S.view='login';S.err='';S.play=null;render();return false}
+function newDraft(){if(!needLogin('new'))return;S.draft=null;S.text='';S.view='create';S.err='';render()}
 
 /* ---------- Thư viện ---------- */
 function card(q,own){
@@ -143,7 +144,7 @@ function card(q,own){
 }
 function homeV(){
   const m=mine();
-  return `<section class="hero"><h2>Biến tài liệu thành bộ câu hỏi ôn tập</h2><p>Tải PDF, Word hoặc dán nội dung. Cứ mỗi 10 câu, bạn sẽ làm lại một câu vừa sai để nhớ lâu hơn.</p><button class="p" onclick="newDraft()">✨ Tạo quiz mới</button></section>
+  return `<section class="hero"><h2>Biến tài liệu thành bộ câu hỏi ôn tập</h2><p>Tải PDF, Word hoặc dán nội dung. Cứ mỗi 10 câu, bạn sẽ làm lại 1-2 câu vừa sai để nhớ lâu hơn.</p>${S.user?'<button class="p" onclick="newDraft()">✨ Tạo quiz mới</button>':'<button class="p" onclick="nav(\'login\')">🔐 Đăng nhập để tạo quiz</button><p class="mu" style="margin:10px 0 0">Nếu bạn chỉ làm quiz được gửi qua link thì không cần đăng nhập.</p>'}</section>
   <h3>Quiz của tôi</h3>${m.length?m.map(q=>card(q,1)).join(''):'<div class="card mu">Chưa có quiz nào.</div>'}
   <h3>Sao lưu</h3><div class="card"><div class="row"><button onclick="exportAll()">⬇️ Xuất tất cả (.json)</button><label class="btn" style="display:inline-block;flex:none;min-width:0;font-size:16px;color:var(--tx);cursor:pointer">⬆️ Nhập file<input type="file" accept=".json" hidden onchange="importFile(this)"></label></div>
   <p class="mu">${noteV()} Nút 🔗 trên mỗi quiz tạo liên kết để gửi người khác. Dữ liệu mất nếu bạn xóa dữ liệu trình duyệt, nên hãy xuất file để sao lưu.</p></div>`;
@@ -153,6 +154,7 @@ function exportAll(){
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='quizai-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
 async function importFile(el){
+  if(!needLogin()){el.value='';return}
   try{
     const j=JSON.parse(await el.files[0].text()),arr=Array.isArray(j)?j:j.quizzes;
     const add=arr.filter(q=>q&&q.title&&Array.isArray(q.questions)).map(q=>({...q,id:rid(),created:Date.now()}));
@@ -215,7 +217,7 @@ async function readF(el){
     S.text=t;$('#t').value=t;fs.textContent='Đã đọc '+t.length.toLocaleString('vi')+' ký tự từ '+f.name;
   }catch(e){fs.textContent='';S.err=e.message||'Không đọc được file';render()}
 }
-function blank(){S.draft={id:rid(),title:'Quiz mới',questions:[{q:'',options:['','','',''],c:[0],exp:''}]};S.view='edit';render()}
+function blank(){if(!needLogin('new'))return;S.draft={id:rid(),title:'Quiz mới',questions:[{q:'',options:['','','',''],c:[0],exp:''}]};S.view='edit';render()}
 function toDraft(r){
   const qs=(r.questions||[]).map(x=>({q:x.q,options:x.options,c:Array.isArray(x.c)?x.c:[x.a],exp:x.exp||''})).filter(x=>x.q&&Array.isArray(x.options)&&x.options.length===4&&x.c.length&&x.c.every(j=>Number.isInteger(j)&&j>=0&&j<4));
   if(!qs.length)throw new Error('Không có câu hỏi hợp lệ, hãy thử lại.');
@@ -229,6 +231,7 @@ async function gen(){
   try{
     const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:S.sel.provider,model:S.sel.model,text:S.text.slice(0,20000),n:S.n,diff:S.diff,type:S.type,lang:S.lang})});
     const j=await r.json().catch(()=>({}));
+    if(r.status===401){S.user=null;S.busy=false;return needLogin('new')}
     if(!r.ok)throw new Error(j.error||('Lỗi '+r.status));
     S.draft=toDraft(j);S.view='edit';
   }catch(e){S.err=e.message||'Lỗi khi gọi AI'}
@@ -303,7 +306,7 @@ function playV(){
   ${p.done?`<div class="fb ${p.ok?'g':'r'}"><b>${p.ok?'✅ Chính xác.':'❌ Chưa đúng.'}</b> ${esc(q.exp||'')}</div><button class="p" onclick="next()">${p.rev?'Tiếp tục':p.i+1<qs.length?'Câu tiếp':'Xem kết quả'}</button>`:''}</div>`;
 }
 /* ---------- Tài khoản Google & đồng bộ ---------- */
-const A={enabled:false,clientId:'',loading:false};
+const A={enabled:false,clientId:'',loading:false,loaded:false,missing:[]};
 let syncQ=Promise.resolve();
 async function api(path,opt){
   const r=await fetch(path,{credentials:'same-origin',...opt}),j=await r.json().catch(()=>({}));
@@ -343,7 +346,7 @@ async function pullCloud(){
 }
 async function loadAuth(){
   try{
-    const j=await api('/api/auth');A.enabled=!!j.enabled;A.clientId=j.clientId||'';
+    const j=await api('/api/auth');A.loaded=true;A.enabled=!!j.enabled;A.clientId=j.clientId||'';A.missing=j.missing||[];
     if(j.user){S.user=j.user;await pullCloud()}
   }catch(e){}
   render();
@@ -353,17 +356,23 @@ function acctHTML(){
     const u=S.user,ini=String((u.name||u.email||'?').trim()[0]||'?').toUpperCase();
     return `<span class="me" title="${esc(u.email)}"><span class="av">${esc(ini)}${u.picture?`<img src="${esc(u.picture)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</span><button onclick="logout()">Đăng xuất</button></span>`;
   }
-  return A.enabled?`<button onclick="nav('login')">Đăng nhập</button>`:'';
+  return `<button onclick="nav('login')">Đăng nhập</button>`;
 }
 function noteV(){
   if(S.user)return `Quiz được lưu trong tài khoản <b>${esc(S.user.email)}</b> và đồng bộ giữa các thiết bị.`;
-  return 'Quiz lưu trong trình duyệt này'+(A.enabled?`, hãy <a href="#" onclick="nav('login');return false">đăng nhập bằng Google</a> để dùng trên thiết bị khác`:'')+'.';
+  return 'Quiz lưu trong trình duyệt này'+`, hãy <a href="#" onclick="nav('login');return false">đăng nhập bằng Google</a> để tạo quiz và dùng trên thiết bị khác`+'.';
 }
 function loginV(){
   if(S.user)return `<div class="card"><h2 style="margin-top:0">Bạn đã đăng nhập</h2><p>${esc(S.user.email)}</p><button class="p" onclick="nav('home')">Về thư viện</button></div>`;
-  return `<div class="card"><h2 style="margin-top:0">Đăng nhập / Đăng ký</h2>
-  <p class="mu">Dùng tài khoản Google (Gmail) để lưu bộ câu hỏi của bạn và mở lại trên bất kỳ thiết bị nào. Lần đầu đăng nhập sẽ tự tạo tài khoản. Các quiz đang có trên thiết bị này sẽ được thêm vào tài khoản.</p>
-  ${A.enabled?'<div id="gbtn" style="min-height:44px"></div>':'<p class="err">Chủ web chưa bật đăng nhập.</p>'}
+  const why=S.after==='new'?'<p class="err" style="margin-top:0">Bạn cần đăng nhập để tạo quiz.</p>':'';
+  let body;
+  if(!A.loaded)body='<p class="mu">Không kết nối được máy chủ. Hãy mở web qua địa chỉ Vercel (không mở file trực tiếp), rồi tải lại trang.</p>';
+  else if(!A.enabled)body=`<p class="err">Đăng nhập chưa được bật trên web này.</p><p class="mu">Chủ web cần thêm các thiết lập còn thiếu trên Vercel (Settings → Environment Variables), rồi Redeploy:</p><ul class="mu">${A.missing.map(m=>`<li>${esc(m)}</li>`).join('')}</ul><p class="mu">Hướng dẫn chi tiết nằm trong README, mục "Bật đăng nhập Google".</p>`;
+  else body='<div id="gbtn" style="min-height:44px"></div>';
+  return `<div class="card"><h2 style="margin-top:0">Đăng nhập / Đăng ký</h2>${why}
+  <p class="mu">Dùng tài khoản Google (Gmail) để tạo quiz, lưu bộ câu hỏi của bạn và mở lại trên bất kỳ thiết bị nào. Lần đầu đăng nhập sẽ tự tạo tài khoản. Quiz đang có trên thiết bị này sẽ được thêm vào tài khoản.</p>
+  <p class="mu">Người nhận link quiz vẫn làm bài bình thường, không cần đăng nhập.</p>
+  ${body}
   <button onclick="nav('home')" style="margin-top:14px">Quay lại</button></div>`;
 }
 function mountGoogle(){
@@ -385,7 +394,7 @@ function mountGoogle(){
 async function onCred(resp){
   try{
     S.user=(await api('/api/auth',{method:'POST',headers:JH,body:JSON.stringify({credential:resp.credential})})).user;
-    await pullCloud();toast('Đã đăng nhập: '+S.user.email);nav('home');
+    await pullCloud();toast('Đã đăng nhập: '+S.user.email);const a=S.after;S.after=null;if(a==='new')newDraft();else nav('home');
   }catch(e){S.err=e.message;render()}
 }
 async function logout(){
