@@ -47,7 +47,6 @@ label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mu);
 .opt.no{border-color:var(--no);background:color-mix(in srgb,var(--no) 14%,var(--card))}.opt.no i{background:var(--no);color:#fff}
 .fb{border-radius:14px;padding:12px 14px;margin:12px 0}.fb.g{background:color-mix(in srgb,var(--ok) 12%,var(--card))}.fb.r{background:color-mix(in srgb,var(--no) 12%,var(--card))}
 .score{font-size:48px;font-weight:800;margin:4px 0;background:linear-gradient(90deg,var(--pr),var(--pr2));-webkit-background-clip:text;background-clip:text;color:transparent}
-.chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.chip{padding:8px 14px;border-radius:99px;font-size:14px}.chip.on{background:var(--pr);color:#fff;border-color:var(--pr);font-weight:600}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 18px;border-radius:99px;z-index:9;box-shadow:var(--sh)}
 @media (max-width:520px){.qt{font-size:18px}.hero h2{font-size:19px}}
 </style>
@@ -57,7 +56,7 @@ label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mu);
 <script>
 const $=s=>document.querySelector(s);
 const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const S={view:'home',me:null,db:null,ai:null,docs:{},draft:null,play:null,busy:false,err:'',text:'',n:10,lang:'Tiếng Việt',diff:'vừa',type:'trộn',cat:null,sel:null,catErr:false};
+const S={view:'home',me:'me',docs:{},draft:null,play:null,busy:false,err:'',text:'',n:10,lang:'Tiếng Việt',diff:'vừa',type:'trộn',sel:{provider:'gemini',model:'gemini-2.5-flash'}};
 const all=()=>Object.entries(S.docs).flatMap(([uid,d])=>(d.quizzes||[]).map(q=>({...q,uid})));
 const mine=()=>S.docs[S.me]?.quizzes||[];
 const rid=()=>'q'+Math.random().toString(36).slice(2,9);
@@ -75,30 +74,12 @@ function load(){
 }
 async function loadCat(){
   try{
-    const r=await fetch('/api/models');if(!r.ok)throw 0;
-    S.cat=(await r.json()).providers||[];
-    let sv=null;try{sv=JSON.parse(localStorage.getItem('quizai.sel'))}catch(e){}
-    const found=sv&&S.cat.find(p=>p.id===sv.provider&&p.models.length);
-    S.sel=found?{provider:found.id,model:found.models[0]}:pickDefault();
-  }catch(e){S.cat=[];S.catErr=true}
-  if(S.view==='create')render();
+    const r=await fetch('/api/models');if(!r.ok)return;
+    const p=((await r.json()).providers||[])[0];
+    if(p&&p.models[0])S.sel={provider:p.id,model:p.models[0]};
+  }catch(e){}
 }
-function pickDefault(){
-  for(const p of S.cat){if(p.models[0])return{provider:p.id,model:p.models[0]}}
-  return null;
-}
-const provName=id=>(S.cat.find(p=>p.id===id)||{}).name||id;
-function selProv(pi){
-  const p=S.cat[pi];if(!p||!p.models[0])return;
-  S.sel={provider:p.id,model:p.models[0]};
-  try{localStorage.setItem('quizai.sel',JSON.stringify(S.sel))}catch(e){}
-  const el=$('#pl');if(el)el.innerHTML=listHTML();
-}
-function listHTML(){
-  const chips=`<div class="chips">${S.cat.map((p,pi)=>`<button class="chip ${S.sel&&S.sel.provider===p.id?'on':''}" onclick="selProv(${pi})">${esc(p.name)}</button>`).join('')}</div>`;
-  return chips+`<p class="mu" style="margin:6px 0 0">Model mặc định (Bản Free): <b>${S.sel?esc(provName(S.sel.provider))+' ('+esc(S.sel.model)+')':'chưa chọn'}</b></p>`;
-}
-function init(){S.me='me';load();route();loadCat()}
+function init(){load();route();loadCat()}
 async function route(){
   const h=location.hash.slice(1);
   if(h.startsWith('s=')){
@@ -154,7 +135,7 @@ async function save(list){localStorage.setItem('quizai.q',JSON.stringify(list));
 async function delQ(id){if(!confirm('Xóa quiz này?'))return;try{await save(mine().filter(q=>q.id!==id));render()}catch(e){S.err=e.message;render()}}
 function editQ(id){S.draft=JSON.parse(JSON.stringify(mine().find(q=>q.id===id)));S.view='edit';render()}
 
-/* ---------- Tạo bằng AI ---------- */
+/* ---------- Tạo bằng AI (Đã ẩn Bước 3) ---------- */
 function createV(){
   return `<div class="card"><div class="st"><span>1</span> Tài liệu</div>
   <input type="file" id="f" accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.srt" onchange="readF(this)"> <span id="fs" class="mu"></span>
@@ -164,11 +145,8 @@ function createV(){
   <label>Số câu (tối đa 50)<input type="number" min="3" max="50" value="${S.n}" onchange="S.n=Math.min(50,Math.max(3,+this.value||8));this.value=S.n"></label>
   <label>Độ khó<select onchange="S.diff=this.value">${['dễ','vừa','khó'].map(x=>`<option ${x===S.diff?'selected':''}>${x}</option>`).join('')}</select></label>
   <label>Dạng câu<select onchange="S.type=this.value">${['trộn','một đáp án','nhiều đáp án'].map(x=>`<option ${x===S.type?'selected':''}>${x}</option>`).join('')}</select></label>
-  <label>Ngôn ngữ<input value="${esc(S.lang)}" onchange="S.lang=this.value"></label></div></div>
-  <div class="card"><div class="st"><span>3</span> Chọn AI (Bản Free mặc định)</div>
-  ${S.cat===null?'<p class="mu">Đang tải danh sách AI…</p>':S.cat.length===0?`<p class="mu">${S.catErr?'Không tải được danh sách AI. Hãy mở web qua địa chỉ Vercel (không mở file trực tiếp).':'Chủ web chưa bật AI nào. Cần thêm GEMINI_API_KEY, GROQ_API_KEY hoặc OPENROUTER_API_KEY vào biến môi trường trên Vercel.'}</p>`:
-  `<div id="pl">${listHTML()}</div>`}
-  <div class="row" style="margin-top:12px"><button class="p" onclick="gen()" ${S.busy||!S.sel?'disabled':''}>${S.busy?'AI đang tạo…':'✨ Tạo quiz bằng AI'}</button><button onclick="blank()">Tạo thủ công</button></div></div>`;
+  <label>Ngôn ngữ<input value="${esc(S.lang)}" onchange="S.lang=this.value"></label></div>
+  <div class="row" style="margin-top:16px"><button class="p" onclick="gen()" ${S.busy?'disabled':''}>${S.busy?'AI đang tạo…':'✨ Tạo quiz bằng AI'}</button><button onclick="blank()">Tạo thủ công</button></div></div>`;
 }
 async function readF(el){
   const f=el.files[0];if(!f)return;const fs=$('#fs'),n=f.name.toLowerCase();
@@ -199,11 +177,10 @@ function toDraft(r){
 function needText(){S.text=($('#t')||{}).value||S.text;if(S.text.trim().length<80){S.err='Tài liệu quá ngắn, hãy dán thêm nội dung.';render();return false}S.err='';return true}
 async function gen(){
   if(!needText())return;
-  if(!S.sel){S.err='Hãy chọn một AI ở bước 3.';return render()}
   S.busy=true;render();
   try{
     const n=Math.min(50,Math.max(3,parseInt(S.n,10)||8));
-    const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:S.sel.provider,model:S.sel.model,text:S.text.slice(0,20000),n,diff:S.diff,type:S.type,lang:S.lang})});
+    const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'gemini',model:S.sel.model,text:S.text.slice(0,20000),n,diff:S.diff,type:S.type,lang:S.lang})});
     const j=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(j.error||('Lỗi '+r.status));
     S.draft=toDraft(j);S.view='edit';
@@ -216,8 +193,7 @@ function editV(){
   const d=S.draft;
   return `<div class="card"><input value="${esc(d.title)}" onchange="S.draft.title=this.value" style="font-weight:700">
   ${d.questions.map((q,i)=>`<div class="q"><div class="row"><b>Câu ${i+1}</b><button onclick="rmQ(${i})">Xóa câu</button></div>
-  <textarea style="min-height:60px" onchange="S.draft.questions[${i}].q=this.value">${esc(q.q)}</textarea>
-  ${q.options.map((o,j)=>`<div class="row" style="margin-top:6px;flex-wrap:nowrap"><input type="checkbox" ${cs(q).includes(j)?'checked':''} onchange="tog(${i},${j},this.checked)"><input value="${esc(o)}" onchange="S.draft.questions[${i}].options[${j}]=this.value"></div>`).join('')}
+  <textarea style="min-height:60px" onchange="S.draft.questions[${i}].q=this.value">${esc(q.q)}</textarea>${q.options.map((o,j)=>`<div class="row" style="margin-top:6px;flex-wrap:nowrap"><input type="checkbox" ${cs(q).includes(j)?'checked':''} onchange="tog(${i},${j},this.checked)"><input value="${esc(o)}" onchange="S.draft.questions[${i}].options[${j}]=this.value"></div>`).join('')}
   <input style="margin-top:6px" placeholder="Giải thích (tùy chọn)" value="${esc(q.exp)}" onchange="S.draft.questions[${i}].exp=this.value"></div>`).join('')}
   <div class="row" style="margin-top:14px"><button onclick="S.draft.questions.push({q:'',options:['','','',''],c:[0],exp:''});render()">+ Thêm câu</button><button class="p" onclick="saveDraft()">💾 Lưu vào thư viện</button></div>
   <p class="mu">Tick ô vuông bên trái các đáp án đúng: tick 1 ô là câu một đáp án, tick từ 2 ô là câu nhiều đáp án.</p></div>`;
@@ -264,13 +240,4 @@ function playV(){
   }
   const q=curQ(p),c=cs(q),multi=c.length>1,pct=Math.round(p.i/qs.length*100);
   const opts=q.options.map((o,j)=>{
-    const cl=p.done?(c.includes(j)?'ok':p.sel.includes(j)?'no':''):(p.sel.includes(j)?'sel':'');
-    const mark=p.done?(c.includes(j)?'✓':p.sel.includes(j)?'✗':''):(multi?(p.sel.includes(j)?'☑':'☐'):'');
-    return `<button class="opt ${cl}" onclick="pick(${j})"><i>${'ABCD'[j]}</i><span>${esc(o)}</span><em>${mark}</em></button>`}).join('');
-  const head=p.rev?`<span class="badge">🔁 Làm lại một câu bạn vừa sai</span>`:`<span class="mu">${esc(p.quiz.title)} · Câu ${p.i+1}/${qs.length}</span>`;
-  return `<div class="bar"><b style="width:${pct}%"></b></div><div class="card">${head}${multi?'<span class="badge b2">Chọn tất cả đáp án đúng</span>':''}<h2 class="qt">${esc(q.q)}</h2>${opts}
-  ${multi&&!p.done?`<button class="p" onclick="grade()" ${p.sel.length?'':'disabled'}>Kiểm tra</button>`:''}
-  ${p.done?`<div class="fb ${p.ok?'g':'r'}"><b>${p.ok?'✅ Chính xác.':'❌ Chưa đúng.'}</b> ${esc(q.exp||'')}</div><button class="p" onclick="next()">${p.rev?'Tiếp tục':p.i+1<qs.length?'Câu tiếp':'Xem kết quả'}</button>`:''}</div>`;
-}
-init();
-</script></body></html>
+    const cl=p.done?(c.includes(j)?'ok':p.sel.includes(j)?'no
