@@ -263,15 +263,20 @@ function pick(j){
   if(cs(q).length===1){p.sel=[j];grade()}
   else{p.sel=p.sel.includes(j)?p.sel.filter(x=>x!==j):[...p.sel,j];render()}
 }
+const AUTO_MS=700;
 function grade(){
   const p=S.play,q=curQ(p),c=cs(q);p.done=true;
   p.ok=p.sel.length===c.length&&c.every(x=>p.sel.includes(x));
   if(!p.rev){if(p.ok)p.score++;else{p.wrong.push(q);p.bw.push(q)}}
   else if(p.ok){p.score++;p.wrong=p.wrong.filter(x=>x!==q)} // làm lại đúng thì được tính điểm
   render();
+  if(p.ok){ // trả lời đúng: tự chuyển sang câu tiếp sau một nhịp ngắn; sai thì chờ người học bấm Tiếp tục
+    const t=p.tk=(p.tk||0)+1;
+    setTimeout(()=>{if(S.play===p&&p.tk===t&&p.done&&p.ok)next()},AUTO_MS);
+  }
 }
 function next(){
-  const p=S.play;p.sel=[];p.done=false;
+  const p=S.play;p.tk=(p.tk||0)+1;p.sel=[];p.done=false;
   if(p.rev){
     if(p.revq.length){p.rev=p.revq.shift();p.revn++}else{p.rev=null;p.bw=[]}
   }else{
@@ -299,7 +304,7 @@ function playV(){
   const head=p.rev?`<span class="badge">🔁 Làm lại câu bạn vừa sai (${p.revn}/${p.revt}) · đúng sẽ được tính điểm</span>`:`<span class="mu">${esc(p.quiz.title)} · Câu ${p.i+1}/${qs.length}</span>`;
   return `<div class="bar"><b style="width:${pct}%"></b></div><div class="card">${head}${multi?'<span class="badge b2">Chọn tất cả đáp án đúng</span>':''}<h2 class="qt">${esc(q.q)}</h2>${opts}
   ${multi&&!p.done?`<button class="p" onclick="grade()" ${p.sel.length?'':'disabled'}>Kiểm tra</button>`:''}
-  ${p.done?`<div class="fb ${p.ok?'g':'r'}"><b>${p.ok?'✅ Chính xác.':'❌ Chưa đúng.'}</b> ${esc(q.exp||'')}</div><button class="p" onclick="next()">${p.rev?'Tiếp tục':p.i+1<qs.length?'Câu tiếp':'Xem kết quả'}</button>`:''}</div>`;
+  ${p.done?`<div class="fb ${p.ok?'g':'r'}"><b>${p.ok?'✅ Chính xác.':'❌ Chưa đúng.'}</b> ${esc(q.exp||'')}</div>${p.ok?'':`<button class="p" onclick="next()">${p.rev?'Tiếp tục':p.i+1<qs.length?'Câu tiếp':'Xem kết quả'}</button>`}`:''}</div>`;
 }
 
 init();
