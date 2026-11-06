@@ -161,14 +161,15 @@ async function importFile(el){
 async function saveShared(){await save([{...S.shared,created:Date.now()},...mine()]);toast('Đã lưu vào thư viện');S.shared=null;nav('home')}
 async function share(id){
   const q=mine().find(x=>x.id===id);if(!q)return;
-  let url='',short=false;
+  let url='',short=false,why='';
   try{
     const r=await fetch('/api/share',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:q.title,questions:q.questions})});
     const j=await r.json().catch(()=>({}));
     if(r.ok&&j.id){url=location.origin+'/s/'+j.id;short=true}
-  }catch(e){}
+    else why=r.status===501?'chưa kết nối Upstash Redis':(j.error||('lỗi '+r.status));
+  }catch(e){why='không gọi được máy chủ'}
   if(!url)url=location.href.split('#')[0]+'#s='+await enc(q); // dự phòng: link dài chứa toàn bộ quiz
-  try{await navigator.clipboard.writeText(url);toast(short?'Đã sao chép link ngắn':url.length>6000?'Đã sao chép link dài (chưa bật link ngắn). Nếu bị cắt hãy gửi file .json':'Đã sao chép liên kết quiz')}
+  try{await navigator.clipboard.writeText(url);toast(short?'Đã sao chép link ngắn':'Chưa rút gọn được ('+why+'). Đã sao chép link dài'+(url.length>6000?', nếu bị cắt hãy gửi file .json':''))}
   catch(e){prompt('Sao chép liên kết:',url)}
 }
 async function save(list){localStorage.setItem('quizai.q',JSON.stringify(list));S.docs={me:{quizzes:list}}}
