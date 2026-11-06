@@ -6,8 +6,7 @@ Web tạo quiz ôn tập từ tài liệu bằng AI. Khóa API nằm trong **bi�
 
 - `index.html`: giao diện.
 - `api/models.js`: trả danh sách AI và model đang bật (lấy trực tiếp từ nhà cung cấp, luôn cập nhật).
-- `api/auth.js`, `api/sync.js`: đăng nhập Google và đồng bộ thư viện quiz theo tài khoản.
-- `api/_lib.js`: hàm dùng chung (Redis, xác minh token Google, phiên đăng nhập).
+- `api/_lib.js`: hàm dùng chung (Redis, kiểm tra dữ liệu quiz, giới hạn lượt gọi).
 - `api/share.js`: tạo và đọc link ngắn (`/s/mã`), lưu quiz trong Upstash Redis.
 - `api/generate.js`: nhận tài liệu, gọi AI bằng khóa của bạn, trả về quiz.
 - `api/_providers.js`: danh sách nhà cung cấp.
@@ -51,21 +50,6 @@ Nút 🔗 sẽ tạo link dạng `tenmiencuaban.vercel.app/s/ab12cd34`. Cần m�
 3. Biến tùy chọn: `SHARE_TTL_DAYS` (số ngày link còn hiệu lực, mặc định 365), `SHARE_LIMIT_PER_HOUR` (mặc định 30 link/giờ/IP).
 
 Nếu chưa cấu hình, nút 🔗 vẫn hoạt động nhưng tạo link dài như trước.
-
-## Bật đăng nhập Google (tùy chọn)
-
-**Lưu ý: web yêu cầu đăng nhập Google mới được tạo quiz (cả giao diện lẫn `/api/generate`), nên bạn cần làm mục này để chính bạn tạo được quiz.** Người nhận link chia sẻ vẫn làm bài không cần đăng nhập.
-
-Cho phép người dùng đăng nhập bằng Gmail để quiz của họ được lưu theo tài khoản và dùng trên mọi thiết bị. Cần **Upstash Redis** (xem mục trên) cộng thêm:
-
-1. Vào [Google Cloud Console](https://console.cloud.google.com) → tạo project → **APIs & Services → OAuth consent screen**: chọn External, điền tên ứng dụng và email, rồi bấm **Publish app** (nếu để chế độ Testing thì chỉ những email bạn thêm vào danh sách test mới đăng nhập được).
-2. **Credentials → Create credentials → OAuth client ID → Web application**. Ở **Authorized JavaScript origins** thêm địa chỉ web của bạn (vd `https://ten-ban.vercel.app`, và `http://localhost:3000` nếu chạy thử trên máy). Không cần điền Redirect URI.
-3. Sao chép **Client ID**, thêm vào Vercel hai biến môi trường:
-   - `GOOGLE_CLIENT_ID`: Client ID vừa tạo.
-   - `SESSION_SECRET`: một chuỗi ngẫu nhiên dài (tạo bằng `openssl rand -base64 32`). Đổi chuỗi này sẽ đăng xuất mọi người.
-4. Redeploy.
-
-Cách hoạt động: máy chủ xác minh chữ ký ID token của Google, rồi cấp cookie phiên HttpOnly (30 ngày). Mỗi tài khoản có một bản ghi riêng trong Redis, khóa theo mã người dùng Google. Chưa đặt đủ ba biến (Redis, `GOOGLE_CLIENT_ID`, `SESSION_SECRET`) thì nút Đăng nhập tự ẩn và web vẫn dùng như cũ.
 
 ## Chống lạm dụng (quan trọng khi cho mọi người dùng chung)
 

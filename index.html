@@ -55,7 +55,6 @@ label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mu);
 .mrow.on{background:color-mix(in srgb,var(--pr) 14%,var(--card));font-weight:600}.dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--bd);flex:none}.mrow.on .dot{border-color:var(--pr);background:var(--pr)}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 18px;border-radius:99px;z-index:9;box-shadow:var(--sh)}
 @media (max-width:520px){.qt{font-size:18px}.hero h2{font-size:19px}}
-.me{display:inline-flex;align-items:center;gap:8px}.av{position:relative;overflow:hidden;width:32px;height:32px;border-radius:50%;background:var(--pr);color:#fff;display:inline-grid;place-items:center;font-weight:700;font-size:14px}.av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
@@ -106,7 +105,7 @@ function listHTML(){
   }).join('');
   return `<div class="mlist">${groups||'<p class="mu" style="padding:10px">Không có kết quả.</p>'}</div><p class="mu">Đang chọn: <b>${S.sel?esc(provName(S.sel.provider))+' · '+esc(S.sel.model):'chưa chọn'}</b></p>`;
 }
-function init(){S.me='me';load();route();loadCat();loadAuth()}
+function init(){S.me='me';load();route();loadCat()}
 async function route(){
   const h=location.hash.slice(1),m=location.pathname.match(/^\/s\/([\w-]{6,16})\/?$/);
   if(m){
@@ -127,14 +126,12 @@ addEventListener('hashchange',route);
 
 function nav(v){S.view=v;S.err='';S.play=null;if(location.hash)history.replaceState(null,'',location.pathname+location.search);render()}
 function render(){
-  $('#nav').innerHTML=`<button onclick="nav('home')">Thư viện</button><button class="p" onclick="newDraft()">+ Tạo quiz</button>${acctHTML()}`;
+  $('#nav').innerHTML=`<button onclick="nav('home')">Thư viện</button><button class="p" onclick="newDraft()">+ Tạo quiz</button>`;
   $('#home').onclick=()=>nav('home');
   const v=S.view;
-  $('#app').innerHTML=(S.err?`<p class="err">${esc(S.err)}</p>`:'')+(v==='create'?createV():v==='edit'?editV():v==='play'?playV():v==='login'?loginV():homeV());
-  if(v==='login')mountGoogle();
+  $('#app').innerHTML=(S.err?`<p class="err">${esc(S.err)}</p>`:'')+(v==='create'?createV():v==='edit'?editV():v==='play'?playV():homeV());
 }
-function needLogin(next){if(S.user)return true;S.after=next||null;S.view='login';S.err='';S.play=null;render();return false}
-function newDraft(){if(!needLogin('new'))return;S.draft=null;S.text='';S.view='create';S.err='';render()}
+function newDraft(){S.draft=null;S.text='';S.view='create';S.err='';render()}
 
 /* ---------- Thư viện ---------- */
 function card(q,own){
@@ -144,17 +141,16 @@ function card(q,own){
 }
 function homeV(){
   const m=mine();
-  return `<section class="hero"><h2>Biến tài liệu thành bộ câu hỏi ôn tập</h2><p>Tải PDF, Word hoặc dán nội dung. Cứ mỗi 10 câu, bạn sẽ làm lại 1-2 câu vừa sai để nhớ lâu hơn.</p>${S.user?'<button class="p" onclick="newDraft()">✨ Tạo quiz mới</button>':'<button class="p" onclick="nav(\'login\')">🔐 Đăng nhập để tạo quiz</button><p class="mu" style="margin:10px 0 0">Nếu bạn chỉ làm quiz được gửi qua link thì không cần đăng nhập.</p>'}</section>
+  return `<section class="hero"><h2>Biến tài liệu thành bộ câu hỏi ôn tập</h2><p>Tải PDF, Word hoặc dán nội dung. Cứ mỗi 10 câu, bạn sẽ làm lại 1-2 câu vừa sai để nhớ lâu hơn.</p><button class="p" onclick="newDraft()">✨ Tạo quiz mới</button></section>
   <h3>Quiz của tôi</h3>${m.length?m.map(q=>card(q,1)).join(''):'<div class="card mu">Chưa có quiz nào.</div>'}
   <h3>Sao lưu</h3><div class="card"><div class="row"><button onclick="exportAll()">⬇️ Xuất tất cả (.json)</button><label class="btn" style="display:inline-block;flex:none;min-width:0;font-size:16px;color:var(--tx);cursor:pointer">⬆️ Nhập file<input type="file" accept=".json" hidden onchange="importFile(this)"></label></div>
-  <p class="mu">${noteV()} Nút 🔗 trên mỗi quiz tạo liên kết để gửi người khác. Dữ liệu mất nếu bạn xóa dữ liệu trình duyệt, nên hãy xuất file để sao lưu.</p></div>`;
+  <p class="mu">Quiz lưu trong trình duyệt này. Nút 🔗 trên mỗi quiz tạo liên kết để gửi người khác. Dữ liệu mất nếu bạn xóa dữ liệu trình duyệt, nên hãy xuất file để sao lưu.</p></div>`;
 }
 function exportAll(){
   const b=new Blob([JSON.stringify({quizzes:mine()},null,1)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='quizai-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
 async function importFile(el){
-  if(!needLogin()){el.value='';return}
   try{
     const j=JSON.parse(await el.files[0].text()),arr=Array.isArray(j)?j:j.quizzes;
     const add=arr.filter(q=>q&&q.title&&Array.isArray(q.questions)).map(q=>({...q,id:rid(),created:Date.now()}));
@@ -175,7 +171,7 @@ async function share(id){
   try{await navigator.clipboard.writeText(url);toast(short?'Đã sao chép link ngắn':url.length>6000?'Đã sao chép link dài (chưa bật link ngắn). Nếu bị cắt hãy gửi file .json':'Đã sao chép liên kết quiz')}
   catch(e){prompt('Sao chép liên kết:',url)}
 }
-async function save(list){localStorage.setItem('quizai.q',JSON.stringify(list));S.docs={me:{quizzes:list}};pushCloud()}
+async function save(list){localStorage.setItem('quizai.q',JSON.stringify(list));S.docs={me:{quizzes:list}}}
 async function delQ(id){if(!confirm('Xóa quiz này?'))return;try{await save(mine().filter(q=>q.id!==id))}catch(e){S.err=e.message;render()}}
 function editQ(id){S.draft=JSON.parse(JSON.stringify(mine().find(q=>q.id===id)));S.view='edit';render()}
 
@@ -217,7 +213,7 @@ async function readF(el){
     S.text=t;$('#t').value=t;fs.textContent='Đã đọc '+t.length.toLocaleString('vi')+' ký tự từ '+f.name;
   }catch(e){fs.textContent='';S.err=e.message||'Không đọc được file';render()}
 }
-function blank(){if(!needLogin('new'))return;S.draft={id:rid(),title:'Quiz mới',questions:[{q:'',options:['','','',''],c:[0],exp:''}]};S.view='edit';render()}
+function blank(){S.draft={id:rid(),title:'Quiz mới',questions:[{q:'',options:['','','',''],c:[0],exp:''}]};S.view='edit';render()}
 function toDraft(r){
   const qs=(r.questions||[]).map(x=>({q:x.q,options:x.options,c:Array.isArray(x.c)?x.c:[x.a],exp:x.exp||''})).filter(x=>x.q&&Array.isArray(x.options)&&x.options.length===4&&x.c.length&&x.c.every(j=>Number.isInteger(j)&&j>=0&&j<4));
   if(!qs.length)throw new Error('Không có câu hỏi hợp lệ, hãy thử lại.');
@@ -231,7 +227,6 @@ async function gen(){
   try{
     const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:S.sel.provider,model:S.sel.model,text:S.text.slice(0,20000),n:S.n,diff:S.diff,type:S.type,lang:S.lang})});
     const j=await r.json().catch(()=>({}));
-    if(r.status===401){S.user=null;S.busy=false;return needLogin('new')}
     if(!r.ok)throw new Error(j.error||('Lỗi '+r.status));
     S.draft=toDraft(j);S.view='edit';
   }catch(e){S.err=e.message||'Lỗi khi gọi AI'}
@@ -305,108 +300,6 @@ function playV(){
   ${multi&&!p.done?`<button class="p" onclick="grade()" ${p.sel.length?'':'disabled'}>Kiểm tra</button>`:''}
   ${p.done?`<div class="fb ${p.ok?'g':'r'}"><b>${p.ok?'✅ Chính xác.':'❌ Chưa đúng.'}</b> ${esc(q.exp||'')}</div><button class="p" onclick="next()">${p.rev?'Tiếp tục':p.i+1<qs.length?'Câu tiếp':'Xem kết quả'}</button>`:''}</div>`;
 }
-/* ---------- Tài khoản Google & đồng bộ ---------- */
-const A={enabled:false,clientId:'',loading:false,loaded:false,missing:[]};
-let syncQ=Promise.resolve();
-async function api(path,opt){
-  const r=await fetch(path,{credentials:'same-origin',...opt}),j=await r.json().catch(()=>({}));
-  if(!r.ok){const e=new Error(j.error||('Lỗi '+r.status));e.status=r.status;throw e}
-  return j;
-}
-const JH={'Content-Type':'application/json'};
-function mergeQ(a,b){
-  const m=new Map();
-  [...a,...b].forEach(q=>{if(!q||!q.id)return;const o=m.get(q.id);if(!o||(q.created||0)>(o.created||0))m.set(q.id,q)});
-  return [...m.values()].sort((x,y)=>(y.created||0)-(x.created||0));
-}
-function pushCloud(){
-  if(!S.user)return syncQ;
-  try{localStorage.setItem('quizai.dirty','1')}catch(e){}
-  syncQ=syncQ.then(async()=>{
-    try{await api('/api/sync',{method:'PUT',headers:JH,body:JSON.stringify({quizzes:mine()})});try{localStorage.removeItem('quizai.dirty')}catch(e){}}
-    catch(e){
-      if(e.status===401){S.user=null;render();toast('Phiên đăng nhập đã hết hạn, hãy đăng nhập lại')}
-      else toast('Chưa đồng bộ được lên tài khoản: '+e.message)
-    }
-  });
-  return syncQ;
-}
-async function pullCloud(){
-  try{
-    const cloud=(await api('/api/sync')).quizzes||[];
-    let owner=null,dirty=false;
-    try{owner=localStorage.getItem('quizai.owner');dirty=localStorage.getItem('quizai.dirty')==='1'}catch(e){}
-    // Lần đầu đăng nhập trên thiết bị (hoặc còn thay đổi chưa đồng bộ): gộp quiz trên máy với quiz trên tài khoản.
-    const merge=owner!==S.user.id||dirty;
-    const list=merge?mergeQ(cloud,mine()):cloud;
-    try{localStorage.setItem('quizai.owner',S.user.id);localStorage.setItem('quizai.q',JSON.stringify(list))}catch(e){}
-    S.docs={me:{quizzes:list}};
-    if(merge)await pushCloud();
-  }catch(e){toast('Không tải được dữ liệu tài khoản: '+e.message)}
-}
-async function loadAuth(){
-  try{
-    const j=await api('/api/auth');A.loaded=true;A.enabled=!!j.enabled;A.clientId=j.clientId||'';A.missing=j.missing||[];
-    if(j.user){S.user=j.user;await pullCloud()}
-  }catch(e){}
-  render();
-}
-function acctHTML(){
-  if(S.user){
-    const u=S.user,ini=String((u.name||u.email||'?').trim()[0]||'?').toUpperCase();
-    return `<span class="me" title="${esc(u.email)}"><span class="av">${esc(ini)}${u.picture?`<img src="${esc(u.picture)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</span><button onclick="logout()">Đăng xuất</button></span>`;
-  }
-  return `<button onclick="nav('login')">Đăng nhập</button>`;
-}
-function noteV(){
-  if(S.user)return `Quiz được lưu trong tài khoản <b>${esc(S.user.email)}</b> và đồng bộ giữa các thiết bị.`;
-  return 'Quiz lưu trong trình duyệt này'+`, hãy <a href="#" onclick="nav('login');return false">đăng nhập bằng Google</a> để tạo quiz và dùng trên thiết bị khác`+'.';
-}
-function loginV(){
-  if(S.user)return `<div class="card"><h2 style="margin-top:0">Bạn đã đăng nhập</h2><p>${esc(S.user.email)}</p><button class="p" onclick="nav('home')">Về thư viện</button></div>`;
-  const why=S.after==='new'?'<p class="err" style="margin-top:0">Bạn cần đăng nhập để tạo quiz.</p>':'';
-  let body;
-  if(!A.loaded)body='<p class="mu">Không kết nối được máy chủ. Hãy mở web qua địa chỉ Vercel (không mở file trực tiếp), rồi tải lại trang.</p>';
-  else if(!A.enabled)body=`<p class="err">Đăng nhập chưa được bật trên web này.</p><p class="mu">Chủ web cần thêm các thiết lập còn thiếu trên Vercel (Settings → Environment Variables), rồi Redeploy:</p><ul class="mu">${A.missing.map(m=>`<li>${esc(m)}</li>`).join('')}</ul><p class="mu">Hướng dẫn chi tiết nằm trong README, mục "Bật đăng nhập Google".</p>`;
-  else body='<div id="gbtn" style="min-height:44px"></div>';
-  return `<div class="card"><h2 style="margin-top:0">Đăng nhập / Đăng ký</h2>${why}
-  <p class="mu">Dùng tài khoản Google (Gmail) để tạo quiz, lưu bộ câu hỏi của bạn và mở lại trên bất kỳ thiết bị nào. Lần đầu đăng nhập sẽ tự tạo tài khoản. Quiz đang có trên thiết bị này sẽ được thêm vào tài khoản.</p>
-  <p class="mu">Người nhận link quiz vẫn làm bài bình thường, không cần đăng nhập.</p>
-  ${body}
-  <button onclick="nav('home')" style="margin-top:14px">Quay lại</button></div>`;
-}
-function mountGoogle(){
-  if(!A.enabled)return;
-  const go=()=>{
-    const box=$('#gbtn');if(!box)return;
-    try{
-      google.accounts.id.initialize({client_id:A.clientId,callback:onCred});
-      google.accounts.id.renderButton(box,{theme:'outline',size:'large',shape:'pill',text:'signin_with',locale:'vi',width:280});
-    }catch(e){box.textContent='Không hiện được nút đăng nhập Google.'}
-  };
-  if(window.google&&google.accounts&&google.accounts.id)return go();
-  if(A.loading)return;A.loading=true;
-  const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;
-  s.onload=()=>{A.loading=false;go()};
-  s.onerror=()=>{A.loading=false;const b=$('#gbtn');if(b)b.textContent='Không tải được Google. Hãy kiểm tra mạng hoặc trình chặn quảng cáo.'};
-  document.head.appendChild(s);
-}
-async function onCred(resp){
-  try{
-    S.user=(await api('/api/auth',{method:'POST',headers:JH,body:JSON.stringify({credential:resp.credential})})).user;
-    await pullCloud();toast('Đã đăng nhập: '+S.user.email);const a=S.after;S.after=null;if(a==='new')newDraft();else nav('home');
-  }catch(e){S.err=e.message;render()}
-}
-async function logout(){
-  if(!confirm('Đăng xuất? Bộ câu hỏi của tài khoản sẽ được xóa khỏi thiết bị này (vẫn còn lưu trên tài khoản).'))return;
-  await syncQ;
-  try{await api('/api/auth',{method:'DELETE'})}catch(e){}
-  try{localStorage.removeItem('quizai.owner');localStorage.removeItem('quizai.dirty');localStorage.setItem('quizai.q','[]')}catch(e){}
-  S.docs={me:{quizzes:[]}};S.user=null;
-  try{google.accounts.id.disableAutoSelect()}catch(e){}
-  nav('home');
-}
-
 
 init();
 </script></body></html>
