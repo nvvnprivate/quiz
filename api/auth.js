@@ -4,7 +4,7 @@ const limited = L.limiter(30);
 const pub = u => ({ id: u.sub, email: u.email, name: u.name, picture: u.picture });
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
-  if (!L.authEnabled) return res.status(200).json({ enabled: false, user: null });
+  if (!L.authEnabled) return res.status(200).json({ enabled: false, user: null, missing: L.missing });
   if (req.method === 'GET') {
     const u = L.readSession(req);
     return res.status(200).json({ enabled: true, clientId: L.CLIENT, user: u ? pub(u) : null });

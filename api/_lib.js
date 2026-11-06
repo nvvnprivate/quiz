@@ -6,6 +6,10 @@ const CLIENT = process.env.GOOGLE_CLIENT_ID || '';
 const SECRET = process.env.SESSION_SECRET || '';
 const hasRedis = !!(RURL && RTOKEN);
 const authEnabled = !!(hasRedis && CLIENT && SECRET.length >= 16);
+const missing = [];
+if (!hasRedis) missing.push('Upstash Redis (UPSTASH_REDIS_REST_URL và UPSTASH_REDIS_REST_TOKEN, hoặc KV_REST_API_URL và KV_REST_API_TOKEN)');
+if (!CLIENT) missing.push('GOOGLE_CLIENT_ID');
+if (SECRET.length < 16) missing.push('SESSION_SECRET (chuỗi ngẫu nhiên từ 16 ký tự)');
 
 async function redis(cmd) {
   const r = await fetch(RURL, { method: 'POST', headers: { Authorization: 'Bearer ' + RTOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd), signal: AbortSignal.timeout(8000) });
@@ -97,4 +101,4 @@ function setSession(req, res, value, maxAge) {
   const secure = (req.headers['x-forwarded-proto'] || '').split(',')[0] === 'https';
   res.setHeader('Set-Cookie', `quizai_session=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? '; Secure' : ''}`);
 }
-module.exports = { hasRedis, authEnabled, CLIENT, redis, cleanQuiz, cleanList, sameOrigin, ipOf, limiter, verifyGoogle, makeSession, readSession, setSession };
+module.exports = { hasRedis, authEnabled, missing, CLIENT, redis, cleanQuiz, cleanList, sameOrigin, ipOf, limiter, verifyGoogle, makeSession, readSession, setSession };

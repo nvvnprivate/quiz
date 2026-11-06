@@ -1,4 +1,5 @@
 const { P, keyOf, enabled, listModels } = require('./_providers');
+const L = require('./_lib');
 const hits = new Map();
 function limited(ip) {
   const lim = +process.env.RATE_LIMIT_PER_HOUR || 20, now = Date.now();
@@ -44,8 +45,10 @@ module.exports = async (req, res) => {
   try { // chỉ nhận yêu cầu từ chính trang web này, chặn web lạ gọi nhờ
     if (req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) return res.status(403).json({ error: 'Nguồn gọi không hợp lệ.' });
   } catch (e) { return res.status(403).json({ error: 'Nguồn gọi không hợp lệ.' }); }
-  const ip = ((req.headers['x-forwarded-for'] || '').split(',')[0] || (req.socket && req.socket.remoteAddress) || '').trim();
-  if (limited(ip)) return res.status(429).json({ error: 'Bạn đã dùng quá nhiều lượt trong 1 giờ, hãy thử lại sau.' });
+  // Chỉ người đã đăng nhập Google mới được tạo quiz.
+  const user = L.authEnabled ? L.readSession(req) : null;
+  if (!user) return res.status(401).json({ error: 'Bạn cần đăng nhập bằng Google để tạo quiz.' });
+  if (limited(user.sub)) return res.status(429).json({ error: 'Bạn đã dùng quá nhiều lượt trong 1 giờ, hãy thử lại sau.' });
   const b = req.body && typeof req.body === 'object' ? req.body : {};
   const id = String(b.provider || ''), model = String(b.model || '');
   if (!P[id] || !enabled().includes(id)) return res.status(400).json({ error: 'AI này chưa được bật.' });
