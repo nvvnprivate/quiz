@@ -1,14 +1,6 @@
 // Danh sách nhà cung cấp AI. Khóa API đọc từ biến môi trường (Vercel → Settings → Environment Variables).
 const P = {
-  gemini: { name: 'Google Gemini', env: 'GEMINI_API_KEY', kind: 'gemini', note: 'có gói miễn phí giới hạn', fallback: ['gemini-3.6-flash', 'gemini-3.1-flash-lite'] },
-  anthropic: { name: 'Anthropic Claude', env: 'ANTHROPIC_API_KEY', kind: 'anthropic', fallback: ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'] },
-  openai: { name: 'OpenAI', env: 'OPENAI_API_KEY', kind: 'openai', base: 'https://api.openai.com/v1',
-    inc: /^(gpt|o\d|chatgpt|chat-latest)/, exc: /(audio|realtime|image|tts|transcribe|embedding|moderation|search|instruct|codex|dall|whisper|sora|davinci|babbage|computer-use)/i, fallback: ['gpt-5.4'] },
-  deepseek: { name: 'DeepSeek', env: 'DEEPSEEK_API_KEY', kind: 'openai', base: 'https://api.deepseek.com', fallback: ['deepseek-chat', 'deepseek-reasoner'] },
-  xai: { name: 'xAI Grok', env: 'XAI_API_KEY', kind: 'openai', base: 'https://api.x.ai/v1', exc: /(image|imagine|video)/i, fallback: [] },
-  mistral: { name: 'Mistral', env: 'MISTRAL_API_KEY', kind: 'openai', base: 'https://api.mistral.ai/v1', exc: /(embed|ocr|moderation|voxtral|transcribe)/i, fallback: ['mistral-small-latest', 'mistral-large-latest'] },
-  groq: { name: 'Groq', env: 'GROQ_API_KEY', kind: 'openai', base: 'https://api.groq.com/openai/v1', exc: /(whisper|tts|guard|orpheus|playai|safeguard)/i, note: 'có gói miễn phí giới hạn', fallback: [] },
-  openrouter: { name: 'OpenRouter', env: 'OPENROUTER_API_KEY', kind: 'openai', base: 'https://openrouter.ai/api/v1', onlyFree: true, note: 'một khóa, chỉ liệt kê model miễn phí', fallback: [] }
+  gemini: { name: 'Google Gemini', env: 'GEMINI_API_KEY', kind: 'gemini', note: 'có gói miễn phí giới hạn', fallback: ['gemini-3.8-flash','gemini-3.6-flash', 'gemini-3.1-flash-lite'] },
 };
 const cache = {};
 const csv = v => (v || '').split(',').map(s => s.trim()).filter(Boolean);
