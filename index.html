@@ -33,8 +33,6 @@ label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mu);
 .h0{--c:#6c47ff}.h1{--c:#ff7a3d}.h2{--c:#12b886}.h3{--c:#e64980}.h4{--c:#f59f00}.h5{--c:#1c7ed6}
 .st{font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
 .st span{width:24px;height:24px;border-radius:50%;background:var(--pr);color:#fff;display:grid;place-items:center;font-size:13px}
-.seg{display:flex;background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:3px;margin:12px 0}
-.seg button{flex:1;border:0;background:none;box-shadow:none}.seg button.on{background:var(--pr);color:#fff;font-weight:600}
 .q{border-top:1px dashed var(--bd);padding-top:12px;margin-top:12px}.q .row input[type=checkbox]{width:auto;accent-color:var(--pr)}
 .bar{height:8px;border-radius:99px;background:var(--bd);overflow:hidden;margin-bottom:14px}
 .bar b{display:block;height:100%;background:linear-gradient(90deg,var(--pr),var(--pr2));border-radius:99px;transition:width .35s}
@@ -49,10 +47,7 @@ label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mu);
 .opt.no{border-color:var(--no);background:color-mix(in srgb,var(--no) 14%,var(--card))}.opt.no i{background:var(--no);color:#fff}
 .fb{border-radius:14px;padding:12px 14px;margin:12px 0}.fb.g{background:color-mix(in srgb,var(--ok) 12%,var(--card))}.fb.r{background:color-mix(in srgb,var(--no) 12%,var(--card))}
 .score{font-size:48px;font-weight:800;margin:4px 0;background:linear-gradient(90deg,var(--pr),var(--pr2));-webkit-background-clip:text;background-clip:text;color:transparent}
-.chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.chip{padding:6px 12px;border-radius:99px;font-size:14px}.chip.on{background:var(--pr);color:#fff;border-color:var(--pr)}
-.mlist{max-height:280px;overflow:auto;border:1px solid var(--bd);border-radius:14px;padding:6px;background:var(--bg)}.gh{font-weight:700;font-size:13px;padding:8px 8px 4px;color:var(--mu)}
-.mrow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:10px;word-break:break-all}.mrow:hover{background:color-mix(in srgb,var(--pr) 8%,var(--card))}
-.mrow.on{background:color-mix(in srgb,var(--pr) 14%,var(--card));font-weight:600}.dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--bd);flex:none}.mrow.on .dot{border-color:var(--pr);background:var(--pr)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.chip{padding:8px 14px;border-radius:99px;font-size:14px}.chip.on{background:var(--pr);color:#fff;border-color:var(--pr);font-weight:600}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 18px;border-radius:99px;z-index:9;box-shadow:var(--sh)}
 @media (max-width:520px){.qt{font-size:18px}.hero h2{font-size:19px}}
 </style>
@@ -62,13 +57,12 @@ label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mu);
 <script>
 const $=s=>document.querySelector(s);
 const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const S={view:'home',me:null,db:null,ai:null,docs:{},draft:null,play:null,busy:false,err:'',text:'',n:8,lang:'Tiếng Việt',diff:'vừa',type:'trộn',cat:null,sel:null,q:'',pf:'',catErr:false};
+const S={view:'home',me:null,db:null,ai:null,docs:{},draft:null,play:null,busy:false,err:'',text:'',n:10,lang:'Tiếng Việt',diff:'vừa',type:'trộn',cat:null,sel:null,catErr:false};
 const all=()=>Object.entries(S.docs).flatMap(([uid,d])=>(d.quizzes||[]).map(q=>({...q,uid})));
 const mine=()=>S.docs[S.me]?.quizzes||[];
 const rid=()=>'q'+Math.random().toString(36).slice(2,9);
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
 const cs=q=>Array.isArray(q.c)?q.c:[q.a];
-const link=id=>location.href.split('#')[0]+'#play-'+id;
 
 const b64=u=>{let t='';u.forEach(x=>t+=String.fromCharCode(x));return btoa(t).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
 const unb64=t=>Uint8Array.from(atob(t.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
@@ -84,27 +78,25 @@ async function loadCat(){
     const r=await fetch('/api/models');if(!r.ok)throw 0;
     S.cat=(await r.json()).providers||[];
     let sv=null;try{sv=JSON.parse(localStorage.getItem('quizai.sel'))}catch(e){}
-    S.sel=sv&&S.cat.some(p=>p.id===sv.provider&&p.models.includes(sv.model))?sv:pickDefault();
+    const found=sv&&S.cat.find(p=>p.id===sv.provider&&p.models.length);
+    S.sel=found?{provider:found.id,model:found.models[0]}:pickDefault();
   }catch(e){S.cat=[];S.catErr=true}
   if(S.view==='create')render();
 }
 function pickDefault(){
-  for(const p of S.cat){const m=p.models.find(x=>/flash|mini|haiku|small|chat|lite/i.test(x))||p.models[0];if(m)return{provider:p.id,model:m}}
+  for(const p of S.cat){if(p.models[0])return{provider:p.id,model:p.models[0]}}
   return null;
 }
 const provName=id=>(S.cat.find(p=>p.id===id)||{}).name||id;
-function selModel(pi,mi){const p=S.cat[pi];S.sel={provider:p.id,model:p.models[mi]};try{localStorage.setItem('quizai.sel',JSON.stringify(S.sel))}catch(e){}updList()}
-function setPf(id){S.pf=id;updList()}
-function updList(){const el=$('#pl');if(el)el.innerHTML=listHTML()}
+function selProv(pi){
+  const p=S.cat[pi];if(!p||!p.models[0])return;
+  S.sel={provider:p.id,model:p.models[0]};
+  try{localStorage.setItem('quizai.sel',JSON.stringify(S.sel))}catch(e){}
+  const el=$('#pl');if(el)el.innerHTML=listHTML();
+}
 function listHTML(){
-  const q=S.q.trim().toLowerCase();
-  const chips=`<div class="chips"><button class="chip ${S.pf?'':'on'}" onclick="setPf('')">Tất cả</button>${S.cat.map(p=>`<button class="chip ${S.pf===p.id?'on':''}" onclick="setPf('${p.id}')">${esc(p.name)}</button>`).join('')}</div>`;
-  const groups=S.cat.map((p,pi)=>{
-    if(S.pf&&S.pf!==p.id)return '';
-    const rows=p.models.map((m,mi)=>[m,mi]).filter(([m])=>!q||(p.name+' '+m).toLowerCase().includes(q));
-    return rows.length?`<div class="gh">${esc(p.name)} <span style="font-weight:400">${esc(p.note)}</span></div>`+rows.map(([m,mi])=>`<button class="mrow ${S.sel&&S.sel.provider===p.id&&S.sel.model===m?'on':''}" onclick="selModel(${pi},${mi})"><span class="dot"></span>${esc(m)}</button>`).join(''):'';
-  }).join('');
-  return chips+`<div class="mlist">${groups||'<p class="mu" style="padding:10px">Không có kết quả.</p>'}</div><p class="mu">Đang chọn: <b>${S.sel?esc(provName(S.sel.provider))+' · '+esc(S.sel.model):'chưa chọn'}</b></p>`;
+  const chips=`<div class="chips">${S.cat.map((p,pi)=>`<button class="chip ${S.sel&&S.sel.provider===p.id?'on':''}" onclick="selProv(${pi})">${esc(p.name)}</button>`).join('')}</div>`;
+  return chips+`<p class="mu" style="margin:6px 0 0">Model mặc định (Bản Free): <b>${S.sel?esc(provName(S.sel.provider))+' ('+esc(S.sel.model)+')':'chưa chọn'}</b></p>`;
 }
 function init(){S.me='me';load();route();loadCat()}
 async function route(){
@@ -159,25 +151,23 @@ async function share(id){
   catch(e){prompt('Sao chép liên kết:',url)}
 }
 async function save(list){localStorage.setItem('quizai.q',JSON.stringify(list));S.docs={me:{quizzes:list}}}
-async function delQ(id){if(!confirm('Xóa quiz này?'))return;try{await save(mine().filter(q=>q.id!==id))}catch(e){S.err=e.message;render()}}
+async function delQ(id){if(!confirm('Xóa quiz này?'))return;try{await save(mine().filter(q=>q.id!==id));render()}catch(e){S.err=e.message;render()}}
 function editQ(id){S.draft=JSON.parse(JSON.stringify(mine().find(q=>q.id===id)));S.view='edit';render()}
 
 /* ---------- Tạo bằng AI ---------- */
 function createV(){
-  
   return `<div class="card"><div class="st"><span>1</span> Tài liệu</div>
   <input type="file" id="f" accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.srt" onchange="readF(this)"> <span id="fs" class="mu"></span>
   <p class="mu">Hỗ trợ PDF, Word (.docx) và file văn bản. PDF scan dạng ảnh không đọc được; file .doc cũ hãy lưu lại thành .docx.</p>
   <textarea id="t" placeholder="Hoặc dán nội dung tài liệu vào đây…" oninput="S.text=this.value">${esc(S.text)}</textarea></div>
   <div class="card"><div class="st"><span>2</span> Tùy chọn</div><div class="row">
-  <label>Số câu<input type="number" min="3" max="30" value="${S.n}" onchange="S.n=+this.value"></label>
+  <label>Số câu (tối đa 50)<input type="number" min="3" max="50" value="${S.n}" onchange="S.n=Math.min(50,Math.max(3,+this.value||8));this.value=S.n"></label>
   <label>Độ khó<select onchange="S.diff=this.value">${['dễ','vừa','khó'].map(x=>`<option ${x===S.diff?'selected':''}>${x}</option>`).join('')}</select></label>
   <label>Dạng câu<select onchange="S.type=this.value">${['trộn','một đáp án','nhiều đáp án'].map(x=>`<option ${x===S.type?'selected':''}>${x}</option>`).join('')}</select></label>
   <label>Ngôn ngữ<input value="${esc(S.lang)}" onchange="S.lang=this.value"></label></div></div>
-  </div>
-  <div class="card"><div class="st"><span>3</span> Chọn AI</div>
-  ${S.cat===null?'<p class="mu">Đang tải danh sách AI…</p>':S.cat.length===0?`<p class="mu">${S.catErr?'Không tải được danh sách AI. Hãy mở web qua địa chỉ Vercel (không mở file trực tiếp).':'Chủ web chưa bật AI nào. Cần thêm khóa API vào biến môi trường trên Vercel.'}</p>`:
-  `<input id="ms" type="search" placeholder="Tìm AI hoặc model (ví dụ: gemini, flash, claude)…" value="${esc(S.q)}" oninput="S.q=this.value;updList()"><div id="pl">${listHTML()}</div>`}
+  <div class="card"><div class="st"><span>3</span> Chọn AI (Bản Free mặc định)</div>
+  ${S.cat===null?'<p class="mu">Đang tải danh sách AI…</p>':S.cat.length===0?`<p class="mu">${S.catErr?'Không tải được danh sách AI. Hãy mở web qua địa chỉ Vercel (không mở file trực tiếp).':'Chủ web chưa bật AI nào. Cần thêm GEMINI_API_KEY, GROQ_API_KEY hoặc OPENROUTER_API_KEY vào biến môi trường trên Vercel.'}</p>`:
+  `<div id="pl">${listHTML()}</div>`}
   <div class="row" style="margin-top:12px"><button class="p" onclick="gen()" ${S.busy||!S.sel?'disabled':''}>${S.busy?'AI đang tạo…':'✨ Tạo quiz bằng AI'}</button><button onclick="blank()">Tạo thủ công</button></div></div>`;
 }
 async function readF(el){
@@ -212,7 +202,8 @@ async function gen(){
   if(!S.sel){S.err='Hãy chọn một AI ở bước 3.';return render()}
   S.busy=true;render();
   try{
-    const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:S.sel.provider,model:S.sel.model,text:S.text.slice(0,20000),n:S.n,diff:S.diff,type:S.type,lang:S.lang})});
+    const n=Math.min(50,Math.max(3,parseInt(S.n,10)||8));
+    const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:S.sel.provider,model:S.sel.model,text:S.text.slice(0,20000),n,diff:S.diff,type:S.type,lang:S.lang})});
     const j=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(j.error||('Lỗi '+r.status));
     S.draft=toDraft(j);S.view='edit';
@@ -236,7 +227,6 @@ function tog(i,j,on){const q=S.draft.questions[i];const c=cs(q).filter(x=>x!==j)
 async function saveDraft(){
   const d=S.draft;d.questions=d.questions.filter(q=>q.q.trim()&&q.options.every(o=>o.trim())&&cs(q).length).map(q=>({q:q.q,options:q.options,c:cs(q),exp:q.exp||''}));
   if(!d.questions.length){S.err='Cần ít nhất 1 câu hỏi đủ 4 đáp án và có đáp án đúng.';return render()}
-  
   try{const m=mine().filter(q=>q.id!==d.id);await save([{...d,created:Date.now()},...m]);nav('home')}catch(e){S.err='Không lưu được: '+e.message;render()}
 }
 
