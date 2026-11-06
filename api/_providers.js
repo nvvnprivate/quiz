@@ -1,18 +1,38 @@
-// Danh sách nhà cung cấp AI. Khóa API đọc từ biến môi trường (Vercel → Settings → Environment Variables).
+// Danh sách nhà cung cấp AI bản miễn phí. Khóa API đọc từ biến môi trường trên Vercel.
 const P = {
-  gemini: { name: 'Google Gemini', env: 'GEMINI_API_KEY', kind: 'gemini', note: 'có gói miễn phí giới hạn', fallback: ['gemini-3.6-flash', 'gemini-3.1-flash-lite'] },
-  anthropic: { name: 'Anthropic Claude', env: 'ANTHROPIC_API_KEY', kind: 'anthropic', fallback: ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'] },
-  openai: { name: 'OpenAI', env: 'OPENAI_API_KEY', kind: 'openai', base: 'https://api.openai.com/v1',
-    inc: /^(gpt|o\d|chatgpt|chat-latest)/, exc: /(audio|realtime|image|tts|transcribe|embedding|moderation|search|instruct|codex|dall|whisper|sora|davinci|babbage|computer-use)/i, fallback: ['gpt-5.4'] },
-  deepseek: { name: 'DeepSeek', env: 'DEEPSEEK_API_KEY', kind: 'openai', base: 'https://api.deepseek.com', fallback: ['deepseek-chat', 'deepseek-reasoner'] },
-  xai: { name: 'xAI Grok', env: 'XAI_API_KEY', kind: 'openai', base: 'https://api.x.ai/v1', exc: /(image|imagine|video)/i, fallback: [] },
-  mistral: { name: 'Mistral', env: 'MISTRAL_API_KEY', kind: 'openai', base: 'https://api.mistral.ai/v1', exc: /(embed|ocr|moderation|voxtral|transcribe)/i, fallback: ['mistral-small-latest', 'mistral-large-latest'] },
-  groq: { name: 'Groq', env: 'GROQ_API_KEY', kind: 'openai', base: 'https://api.groq.com/openai/v1', exc: /(whisper|tts|guard|orpheus|playai|safeguard)/i, note: 'có gói miễn phí giới hạn', fallback: [] },
-  openrouter: { name: 'OpenRouter', env: 'OPENROUTER_API_KEY', kind: 'openai', base: 'https://openrouter.ai/api/v1', onlyFree: true, note: 'một khóa, chỉ liệt kê model miễn phí', fallback: [] }
+  gemini: {
+    name: 'Google Gemini (Free)',
+    env: 'GEMINI_API_KEY',
+    kind: 'gemini',
+    note: 'model mặc định miễn phí',
+    pref: [/^gemini-2\.5-flash$/, /^gemini-2\.0-flash$/, /flash-lite/, /flash/],
+    fallback: ['gemini-2.5-flash']
+  },
+  groq: {
+    name: 'Groq (Free)',
+    env: 'GROQ_API_KEY',
+    kind: 'openai',
+    base: 'https://api.groq.com/openai/v1',
+    exc: /(whisper|tts|guard|orpheus|playai|safeguard|vision)/i,
+    note: 'model mặc định miễn phí',
+    pref: [/^llama-3\.3-70b-versatile$/, /^llama-3\.1-8b-instant$/, /llama/i],
+    fallback: ['llama-3.3-70b-versatile']
+  },
+  openrouter: {
+    name: 'OpenRouter (Free)',
+    env: 'OPENROUTER_API_KEY',
+    kind: 'openai',
+    base: 'https://openrouter.ai/api/v1',
+    onlyFree: true,
+    note: 'model mặc định miễn phí',
+    pref: [/gemini.*:free/i, /llama-3\.3.*:free/i, /deepseek.*:free/i, /:free$/],
+    fallback: ['meta-llama/llama-3.3-70b-instruct:free']
+  }
 };
+
 const cache = {};
 const csv = v => (v || '').split(',').map(s => s.trim()).filter(Boolean);
-const keyOf = id => process.env[P[id].env];
+const keyOf = id => process.env[P[id] && P[id].env];
 const enabled = () => Object.keys(P).filter(id => keyOf(id) && (!csv(process.env.ALLOWED_PROVIDERS).length || csv(process.env.ALLOWED_PROVIDERS).includes(id)));
 
 async function getJson(url, headers) {
@@ -20,16 +40,13 @@ async function getJson(url, headers) {
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
+
 async function fetchIds(id) {
   const p = P[id], key = keyOf(id);
   if (p.kind === 'gemini') {
     const j = await getJson('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { 'x-goog-api-key': key });
     return (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
-      .map(m => m.name.replace(/^models\//, '')).filter(i => !/(image|tts|live|audio|embed|veo|imagen|lyria|robotics|computer-use|aqa|omni)/i.test(i));
-  }
-  if (p.kind === 'anthropic') {
-    const j = await getJson('https://api.anthropic.com/v1/models?limit=100', { 'x-api-key': key, 'anthropic-version': '2023-06-01' });
-    return (j.data || []).map(m => m.id);
+      .map(m => m.name.replace(/^models\//, '')).filter(i => !/(image|tts|live|audio|embed|veo|imagen|lyria|robotics|computer-use|aqa|omni|pro)/i.test(i));
   }
   const j = await getJson(p.base + '/models', { Authorization: 'Bearer ' + key });
   let ids = (j.data || []).map(m => m.id);
@@ -38,7 +55,8 @@ async function fetchIds(id) {
   if (p.onlyFree) ids = ids.filter(i => i.endsWith(':free'));
   return ids;
 }
-// Lấy danh sách model trực tiếp từ nhà cung cấp (luôn cập nhật), cache 1 giờ.
+
+// Chỉ trả về ĐÚNG 1 model mặc định bản free cho mỗi nhà cung cấp
 async function listModels(id) {
   const c = cache[id];
   if (c && Date.now() - c.t < 3600e3) return c.models;
@@ -47,8 +65,18 @@ async function listModels(id) {
   if (!ids.length) ids = P[id].fallback.slice();
   const only = csv(process.env.ALLOWED_MODELS);
   if (only.length) ids = ids.filter(i => only.includes(i));
-  ids = [...new Set(ids)].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-  cache[id] = { t: Date.now() - (failed ? 3540e3 : 0), models: ids };
-  return ids;
+  ids = [...new Set(ids)];
+
+  let chosen = null;
+  for (const rx of (P[id].pref || [])) {
+    chosen = ids.find(i => rx.test(i));
+    if (chosen) break;
+  }
+  if (!chosen && ids.length) chosen = ids[0];
+  const finalModels = chosen ? [chosen] : P[id].fallback.slice(0, 1);
+
+  cache[id] = { t: Date.now() - (failed ? 3540e3 : 0), models: finalModels };
+  return finalModels;
 }
+
 module.exports = { P, keyOf, enabled, listModels };
