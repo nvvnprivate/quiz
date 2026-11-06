@@ -1,6 +1,16 @@
 // Tiện ích dùng chung: Redis (Upstash REST), kiểm tra dữ liệu quiz, giới hạn lượt gọi.
-const RURL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const RTOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+// Tìm cặp biến Redis do Vercel/Upstash tạo, kể cả khi có tiền tố tùy chọn (vd STORAGE_KV_REST_API_URL).
+function findRedis() {
+  for (const [u, t] of [['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'], ['KV_REST_API_URL', 'KV_REST_API_TOKEN']]) {
+    for (const k of Object.keys(process.env)) {
+      if (k !== u && !k.endsWith('_' + u)) continue;
+      const tok = process.env[k.slice(0, k.length - u.length) + t];
+      if (process.env[k] && tok) return [process.env[k], tok];
+    }
+  }
+  return [];
+}
+const [RURL, RTOKEN] = findRedis();
 const hasRedis = !!(RURL && RTOKEN);
 
 async function redis(cmd) {
