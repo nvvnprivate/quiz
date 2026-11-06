@@ -4,8 +4,8 @@ const P = {
     name: 'Google Gemini',
     env: 'GEMINI_API_KEY',
     kind: 'gemini',
-    pref: [/^gemini-2\.5-flash$/, /^gemini-2\.0-flash$/, /flash-lite/, /flash/],
-    fallback: ['gemini-2.5-flash']
+    pref: [/^gemini-3\.8-flash$/, /^gemini-3\.7-flash$/, /^gemini-2\.5-flash$/, /flash/],
+    fallback: ['gemini-3.8-flash']
   }
 };
 
